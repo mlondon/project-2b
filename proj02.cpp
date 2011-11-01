@@ -1,3 +1,11 @@
+/*
+ * Program:    Project II, Part B 
+ * @authors:   Matthew London, Devin Mckinney, Jeremy Gustine
+ * Course:     Operating Systems -- CS4500
+ * Date:       November 9, 2011
+ * Desc:
+ */
+
 #include <iostream>
 #include <stdio.h>
 #include <pthread.h>
@@ -7,12 +15,14 @@
 #define MAX 20
 
 using namespace std;
+
 sem_t donePhase;
 sem_t oddWait;
 sem_t evenWait;
 sem_t mutex;
 
 int content[MAX];
+int noWorkers;
 int count;
 //For Debugging...
 //int eValue;
@@ -21,7 +31,7 @@ int count;
 
 void doSwap(int l, int r)
 {
-    sem_wait(&mutex);                                                 //Lock the C-Region
+    sem_wait(&mutex);                                                      //Lock the C-Region
     cout << "Entering C-Region..." << endl;
     if(content[l] > content[r])
     {
@@ -31,18 +41,8 @@ void doSwap(int l, int r)
 	content[r] = tmp;
     }
     cout << "Leaving C-Region..." << endl;
-    sem_post(&mutex);                                                 //Unlock the C-Region
-    sem_post(&donePhase);                                             //Increment Phase Done
-}
-
-void displayContents()
-{
-    cout << "File Contents:" << endl;
-    for(int i = 0; i < count; i++)
-    {
-        cout << content[i] << " ";
-    }  
-    cout << endl;
+    sem_post(&mutex);                                                      //Unlock the C-Region
+    sem_post(&donePhase);                                                  //Increment Phase Done
 }
 
 void *sortContent(void *tid)
@@ -50,18 +50,18 @@ void *sortContent(void *tid)
     int id = (long)tid;
     for(int i = 0; i < count; i++)
     {
-        if(((i + 1) % 2) != 0)                                            //Odd Phase
+        if(((i + 1) % 2) != 0)                                              //Odd Phase
 	{
-	    int l = (2 * id);                                             //left index always even; l = 2K
+	    int l = (2 * id);                                               //left index always even; l = 2K
 	    int r = l + 1;
 	    sem_wait(&oddWait);
 	    cout << "Odd " << id << ": executing... " << endl;
 	    doSwap(l, r);
 	    sem_post(&evenWait);
 	}
-	else                                                            //Even Phase
+	else                                                                //Even Phase
         {  
-	    if(id != 1)                                                   //Skip the last thread in the even phase (N/2)
+	    if(id != (noWorkers - 1))                                       //Skip the last thread in the even phase (N/2)
 	    {	                                            
 	        int l = (2 * id) + 1;                                       //left index always odd: l = 2K + 1
 		int r = l + 1;
@@ -80,6 +80,16 @@ void *sortContent(void *tid)
 	//endl << "Done: " << dValue <<
 	//endl;
     }
+}
+
+void displayContents()
+{
+    cout << "File Contents:" << endl;
+    for(int i = 0; i < count; i++)
+    {
+        cout << content[i] << " ";
+    }  
+    cout << endl;
 }
 
 int readFile(char *fileName)
@@ -103,10 +113,9 @@ int main(int argc, char *argv[])
 {
     if(argc == 2)
     {
-      //cout << "Filename " << argv[2] << endl;
         count = readFile(argv[1]);
 	
-	int noWorkers = (count / 2);
+	noWorkers = (count / 2);
 	pthread_t worker[noWorkers];
 	
 	sem_init(&donePhase, 0, noWorkers);
