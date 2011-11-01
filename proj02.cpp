@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <fstream>
 
-#define MAX 4
+#define MAX 20
 
 using namespace std;
 sem_t donePhase;
@@ -11,7 +12,8 @@ sem_t oddWait;
 sem_t evenWait;
 sem_t mutex;
 
-int content[] = {98, 5, 75, 90};
+int content[MAX];
+int count;
 int eValue;
 int oValue;
 int dValue;
@@ -34,18 +36,18 @@ void doSwap(int l, int r)
 
 void displayContents()
 {
-  for(int i = 0; i < MAX; i++)
+  for(int i = 0; i < count; i++)
   {
-    //cout << content[i] << endl;
+    cout << content[i] << endl;
   }  
 }
 
 void *sortContent(void *tid)
 {
   int id = (long)tid;
-  for(int i = 0; i < MAX; i++)
+  for(int i = 0; i < count; i++)
   {
-    if(((i + 1)%2) != 0)                                            //Odd Phase
+    if(((i + 1) % 2) != 0)                                            //Odd Phase
     {
       int l = (2 * id);                                             //left index always even; l = 2K
       int r = l + 1;
@@ -74,26 +76,60 @@ void *sortContent(void *tid)
     //endl << "Done: " << dValue <<
     //endl;
   }
-  displayContents();
+  //  displayContents();
+}
+
+int readFile(char *fileName)
+{
+    int value;
+    int count = 0;
+    ifstream file(fileName, fstream::in);
+    if(file.is_open())
+    {
+        while((file >> value) && (count < MAX))
+	{
+	  content[count++] = value;      
+	}
+    } else {
+      cout << "Invalid!" << endl;
+    }
+  return count;
 }
 
 int main(int argc, char *argv[])
 {
-  pthread_t worker[2];
-  
-  sem_init(&donePhase, 0, 0);
-  sem_init(&oddWait, 0, 2);
-  sem_init(&evenWait, 0, 0);
-  sem_init(&mutex, 0, 1);
-  
-  for(int i = 0; i < 2; i++)
-  {
-    pthread_create(&worker[i], NULL, sortContent, (void*)i);
-  }
+    if(argc == 2)
+    {
+      //cout << "Filename " << argv[2] << endl;
+        count = readFile(argv[1]);
+	
+	int noWorkers = (count / 2);
+	pthread_t worker[noWorkers];
+	
+	sem_init(&donePhase, 0, 0);
+	sem_init(&oddWait, 0, noWorkers);
+	sem_init(&evenWait, 0, 0);
+	sem_init(&mutex, 0, 1);
+      
+	displayContents();
 
-  for(int i = 0; i < 2; i++)
-  {
-    pthread_join(worker[i], NULL);
-  }
-  return 0;
+	for(int i = 0; i < noWorkers; i++)
+	{
+	    pthread_create(&worker[i], NULL, sortContent, (void*)i);
+	}
+
+	for(int i = 0; i < noWorkers; i++)
+        {
+	  pthread_join(worker[i], NULL);
+        }
+
+	sem_destroy(&donePhase);
+	sem_destroy(&oddWait);
+	sem_destroy(&evenWait);
+    }
+    else
+    {
+        cout << "File name not included!" << endl;
+    }
+    return 0;
 }
